@@ -1,0 +1,7 @@
+{
+  "name": "ulrike-salako-portfolio",
+  "private": true,
+  "engines": {
+    "node": "18.x"
+  }
+}
