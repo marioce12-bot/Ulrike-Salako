@@ -6,12 +6,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.14.1/firebas
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "REMPLACE_MOI",
-  authDomain: "REMPLACE_MOI.firebaseapp.com",
-  projectId: "REMPLACE_MOI",
-  storageBucket: "REMPLACE_MOI.firebasestorage.app",
-  messagingSenderId: "REMPLACE_MOI",
-  appId: "REMPLACE_MOI",
+  apiKey: "AIzaSyCkLEu-aXlY9ZK7iB4k5A-Axrjy_Rn3T1A",
+  authDomain: "clariv-tasks.firebaseapp.com",
+  projectId: "clariv-tasks",
+  storageBucket: "clariv-tasks.firebasestorage.app",
+  messagingSenderId: "956522590405",
+  appId: "1:956522590405:web:340eb1a2a7e595411bc0ac",
 };
 
 export const app = initializeApp(firebaseConfig);
