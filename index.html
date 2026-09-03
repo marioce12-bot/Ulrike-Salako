@@ -33,6 +33,12 @@
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
+  .progress-bar{
+    position:fixed; top:0; left:0; height:2px; width:0%;
+    background:var(--accent); z-index:1000;
+    box-shadow:0 0 8px rgba(201,72,47,.6);
+  }
+
   header{
     position:fixed; top:0; left:0; right:0; z-index:100;
     display:flex; justify-content:space-between; align-items:center;
@@ -59,6 +65,7 @@
       radial-gradient(ellipse 120% 60% at 50% 0%, rgba(201,72,47,.18), transparent 60%),
       repeating-linear-gradient(180deg, rgba(255,255,255,.02) 0px, rgba(255,255,255,.02) 1px, transparent 1px, transparent 3px);
   }
+  .hero-inner{position:relative; will-change:transform, opacity;}
   .hero-top{
     position:relative;
     display:flex; justify-content:space-between; align-items:flex-start;
@@ -98,7 +105,27 @@
     font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--accent);
     display:flex; align-items:center; gap:14px; margin-bottom:36px;
   }
-  .label::before{content:""; width:40px; height:1px; background:var(--accent);}
+  .label::before{content:""; width:0; height:1px; background:var(--accent); transition:width .8s cubic-bezier(.16,1,.3,1) .25s;}
+  .label.visible::before{width:40px;}
+
+  /* --- Reveal on scroll --- */
+  .reveal{
+    opacity:0; transform:translateY(42px);
+    transition:opacity 1s cubic-bezier(.16,1,.3,1), transform 1s cubic-bezier(.16,1,.3,1);
+    transition-delay:var(--d, 0ms);
+  }
+  .reveal.visible{opacity:1; transform:translateY(0);}
+  .reveal-scale{
+    opacity:0; transform:translateY(30px) scale(.96);
+    transition:opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1);
+    transition-delay:var(--d, 0ms);
+  }
+  .reveal-scale.visible{opacity:1; transform:translateY(0) scale(1);}
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal, .reveal-scale, .label::before{transition:none !important; opacity:1 !important; transform:none !important; width:40px !important;}
+    .hero-inner{transform:none !important;}
+  }
 
   /* ABOUT / SPEC SHEET */
   .about{
@@ -201,6 +228,7 @@
 <body>
 
 <div class="grain"></div>
+<div class="progress-bar" id="progress-bar"></div>
 
 <header>
   <a href="#top">Ulrike Salako</a>
@@ -212,31 +240,33 @@
 </header>
 
 <section class="hero" id="top">
-  <div class="hero-top">
-    <span id="hero-eyebrow-left"></span>
-    <span id="hero-eyebrow-right"></span>
-  </div>
-  <h1 class="hero-name" id="hero-name"></h1>
-  <div class="hero-sub">
-    <p id="hero-subtitle"></p>
-    <div class="scroll-hint" id="hero-scroll-hint"></div>
+  <div class="hero-inner" id="hero-inner">
+    <div class="hero-top">
+      <span id="hero-eyebrow-left"></span>
+      <span id="hero-eyebrow-right"></span>
+    </div>
+    <h1 class="hero-name" id="hero-name"></h1>
+    <div class="hero-sub">
+      <p id="hero-subtitle"></p>
+      <div class="scroll-hint" id="hero-scroll-hint"></div>
+    </div>
   </div>
 </section>
 
 <section class="about" id="about">
-  <div class="about-text">
+  <div class="about-text reveal">
     <h2 id="about-quote"></h2>
     <p id="about-paragraph"></p>
     <div id="about-badges"></div>
   </div>
-  <div class="spec">
+  <div class="spec reveal">
     <h3>Технические данные</h3>
     <div id="spec-rows"></div>
   </div>
 </section>
 
 <section id="gallery">
-  <div class="gallery-head">
+  <div class="gallery-head reveal">
     <h2 id="gallery-title"></h2>
     <p id="gallery-text"></p>
   </div>
@@ -244,17 +274,17 @@
 </section>
 
 <section class="contact" id="contact">
-  <h2 class="contact-head" id="contact-heading"></h2>
+  <h2 class="contact-head reveal" id="contact-heading"></h2>
   <div class="contact-grid">
-    <div class="contact-item">
+    <div class="contact-item reveal-scale">
       <span class="k" id="contact-phone-label"></span>
       <a id="contact-phone-link" href="#"></a>
     </div>
-    <div class="contact-item">
+    <div class="contact-item reveal-scale">
       <span class="k" id="contact-email-label"></span>
       <a id="contact-email-link" href="#"></a>
     </div>
-    <div class="contact-item">
+    <div class="contact-item reveal-scale">
       <span class="k" id="contact-instagram-label"></span>
       <a id="contact-instagram-link" href="#" target="_blank" rel="noopener"></a>
     </div>
@@ -278,6 +308,57 @@
     if (el) el.textContent = value ?? "";
   }
 
+  // ---------- Animations au scroll ----------
+
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: "0px 0px -8% 0px" });
+
+  function observeReveal(el, index = 0, stagger = 90) {
+    if (!el) return;
+    el.style.setProperty("--d", `${(index % 6) * stagger}ms`);
+    revealObserver.observe(el);
+  }
+
+  function setupStaticReveals() {
+    document.querySelectorAll(".contact-item.reveal-scale").forEach((el, i) => observeReveal(el, i));
+    observeReveal(document.querySelector(".about-text.reveal"));
+    observeReveal(document.querySelector(".spec.reveal"), 1);
+    observeReveal(document.querySelector(".gallery-head.reveal"));
+    observeReveal(document.querySelector(".contact-head.reveal"));
+  }
+
+  const heroInner = document.getElementById("hero-inner");
+  const progressBar = document.getElementById("progress-bar");
+  let ticking = false;
+
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY;
+      const vh = window.innerHeight;
+
+      // Parallax discret du hero : il glisse et s'estompe pendant qu'on quitte l'écran d'accueil.
+      const heroProgress = Math.min(y / (vh * 0.9), 1);
+      heroInner.style.transform = `translateY(${heroProgress * 70}px)`;
+      heroInner.style.opacity = String(1 - heroProgress * 0.85);
+
+      // Barre de progression de lecture, en haut de page.
+      const max = document.documentElement.scrollHeight - vh;
+      progressBar.style.width = (max > 0 ? Math.min(100, (y / max) * 100) : 0) + "%";
+
+      ticking = false;
+    });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
   function render(content) {
     const c = { ...DEFAULT_CONTENT, ...content };
     const hero = { ...DEFAULT_CONTENT.hero, ...(content.hero || {}) };
@@ -300,20 +381,22 @@
     text("about-paragraph", about.paragraph);
     const badgesEl = document.getElementById("about-badges");
     badgesEl.innerHTML = "";
-    (about.badges || []).forEach((b) => {
+    (about.badges || []).forEach((b, i) => {
       const span = document.createElement("span");
-      span.className = "badge";
+      span.className = "badge reveal";
       span.textContent = b;
       badgesEl.appendChild(span);
+      observeReveal(span, i, 70);
     });
 
     const specEl = document.getElementById("spec-rows");
     specEl.innerHTML = "";
-    specs.forEach((row) => {
+    specs.forEach((row, i) => {
       const div = document.createElement("div");
-      div.className = "spec-row";
+      div.className = "spec-row reveal";
       div.innerHTML = `<span>${escapeHtml(row.label)}</span><span>${escapeHtml(row.value)}</span>`;
       specEl.appendChild(div);
+      observeReveal(div, i, 80);
     });
 
     text("gallery-title", galleryIntro.title);
@@ -328,13 +411,14 @@
     } else {
       gallery.forEach((photo, i) => {
         const frame = document.createElement("div");
-        frame.className = `frame ${FRAME_PATTERN[i % FRAME_PATTERN.length]}`;
+        frame.className = `frame reveal-scale ${FRAME_PATTERN[i % FRAME_PATTERN.length]}`;
         const img = document.createElement("img");
         img.src = photo.url;
         img.alt = photo.alt || `Ulrike Salako — photo ${i + 1}`;
         img.loading = "lazy";
         frame.appendChild(img);
         galleryGrid.appendChild(frame);
+        observeReveal(frame, i, 100);
       });
     }
 
@@ -370,6 +454,7 @@
       console.error("Impossible de charger le contenu depuis Firestore, affichage du contenu par défaut.", err);
       render(DEFAULT_CONTENT);
     }
+    setupStaticReveals();
   }
 
   load();
