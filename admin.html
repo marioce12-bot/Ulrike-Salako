@@ -29,6 +29,8 @@
   }
   input:focus, textarea:focus{outline:none; border-color:var(--accent);}
   textarea{resize:vertical; min-height:70px;}
+  input[type="file"]{padding:8px; cursor:pointer;}
+  input[type="hidden"]{display:none;}
   label.field{display:block; margin-bottom:14px;}
   label.field span{display:block; font-size:11.5px; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; text-transform:uppercase;}
   button{
@@ -78,6 +80,9 @@
   .photo-preview{width:100%; height:140px; border-radius:6px; object-fit:cover; background:#000; margin-top:10px; display:none;}
   .photo-preview.visible{display:block;}
   .add-row{margin-top:4px;}
+  .upload-status{font-size:11.5px; color:var(--muted); margin:4px 0 10px;}
+  .upload-status.ok{color:var(--ok);}
+  .upload-status.err{color:var(--err);}
 </style>
 </head>
 <body>
@@ -85,8 +90,7 @@
 <div class="login-screen" id="login-screen">
   <div class="login-card">
     <h1>Espace admin</h1>
-    <p>Connecte-toi pour modifier le contenu du portfolio.</p>
-    <label class="field"><span>Email</span><input type="email" id="login-email" autocomplete="username"></label>
+    <p>Entre le mot de passe pour modifier le contenu du portfolio.</p>
     <label class="field"><span>Mot de passe</span><input type="password" id="login-password" autocomplete="current-password"></label>
     <button class="primary" id="login-submit">Se connecter</button>
     <div class="login-error" id="login-error"></div>
@@ -139,7 +143,7 @@
 
     <section class="panel">
       <h2>Galerie</h2>
-      <p class="hint">Héberge chaque photo sur imgbb.com, puis colle ici le lien direct de l'image ("Direct link").</p>
+      <p class="hint">Choisis une photo directement depuis ta galerie ou ton appareil photo — elle est envoyée automatiquement sur imgbb, pas besoin de lien.</p>
       <div class="row2">
         <label class="field"><span>Titre de la section</span><input id="galleryIntro-title"></label>
         <label class="field"><span>Texte sous le titre</span><input id="galleryIntro-text"></label>
@@ -187,19 +191,51 @@
   const adminShell = document.getElementById("admin-shell");
   const loginError = document.getElementById("login-error");
   const saveStatus = document.getElementById("save-status");
+  const loginPasswordInput = document.getElementById("login-password");
+  const loginSubmitBtn = document.getElementById("login-submit");
 
-  document.getElementById("login-submit").addEventListener("click", async () => {
+  // Mot de passe gardé en mémoire (jamais stocké sur disque) pour autoriser
+  // les uploads de photos pendant la session admin.
+  let sessionPassword = "";
+
+  async function doLogin() {
     loginError.textContent = "";
-    const email = document.getElementById("login-email").value.trim();
-    const password = document.getElementById("login-password").value;
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      loginError.textContent = "Connexion impossible — vérifie l'email et le mot de passe.";
+    const password = loginPasswordInput.value;
+    if (!password) {
+      loginError.textContent = "Entre le mot de passe.";
+      return;
     }
+    loginSubmitBtn.disabled = true;
+    try {
+      const resp = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        loginError.textContent = data.error || "Mot de passe incorrect.";
+        return;
+      }
+      sessionPassword = password;
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+    } catch (err) {
+      console.error(err);
+      loginError.textContent = "Connexion impossible — réessaie.";
+    } finally {
+      loginSubmitBtn.disabled = false;
+    }
+  }
+
+  loginSubmitBtn.addEventListener("click", doLogin);
+  loginPasswordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doLogin();
   });
 
-  document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    sessionPassword = "";
+    signOut(auth);
+  });
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -209,8 +245,37 @@
     } else {
       loginScreen.style.display = "flex";
       adminShell.classList.remove("visible");
+      loginPasswordInput.value = "";
     }
   });
+
+  // ---------- Compression image côté navigateur avant upload ----------
+
+  function compressImage(file, maxDim = 1600, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Fichier image invalide."));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+            else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   // ---------- Repeatable list helpers (badges / specs / gallery) ----------
 
@@ -257,16 +322,52 @@
           <button type="button" class="small ghost remove">Retirer</button>
         </div>
       </div>
-      <label class="field"><span>Lien direct imgbb</span><input class="photo-url" placeholder="https://i.ibb.co/..." value="${escapeAttr(url)}"></label>
+      <label class="field"><span>Choisir une photo (galerie / appareil photo)</span><input type="file" class="photo-file" accept="image/*"></label>
+      <input type="hidden" class="photo-url" value="${escapeAttr(url)}">
+      <div class="upload-status"></div>
       <label class="field"><span>Texte alternatif (description courte)</span><input class="photo-alt" value="${escapeAttr(alt)}"></label>
       <img class="photo-preview ${url ? "visible" : ""}" src="${escapeAttr(url)}">
     `;
+    const fileInput = row.querySelector(".photo-file");
     const urlInput = row.querySelector(".photo-url");
     const preview = row.querySelector(".photo-preview");
-    urlInput.addEventListener("input", () => {
-      if (urlInput.value) { preview.src = urlInput.value; preview.classList.add("visible"); }
-      else { preview.classList.remove("visible"); }
+    const status = row.querySelector(".upload-status");
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      if (!sessionPassword) {
+        status.textContent = "Session expirée — reconnecte-toi puis réessaie.";
+        status.className = "upload-status err";
+        return;
+      }
+      fileInput.disabled = true;
+      status.textContent = "Compression et envoi…";
+      status.className = "upload-status";
+      try {
+        const compressed = await compressImage(file);
+        preview.src = compressed;
+        preview.classList.add("visible");
+        const resp = await fetch("/api/upload-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: sessionPassword, image: compressed, name: file.name }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) throw new Error(data.error || "Échec de l'upload.");
+        urlInput.value = data.url;
+        preview.src = data.url;
+        status.textContent = "Photo envoyée ✓";
+        status.className = "upload-status ok";
+      } catch (err) {
+        console.error(err);
+        status.textContent = err.message || "Échec de l'envoi de la photo.";
+        status.className = "upload-status err";
+      } finally {
+        fileInput.disabled = false;
+      }
     });
+
     row.querySelector(".remove").addEventListener("click", () => row.remove());
     row.querySelector(".move-up").addEventListener("click", () => {
       const prev = row.previousElementSibling;
