@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Ulrike Salako</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0c0c;
+    --panel:#161614;
+    --panel-2:#1d1d1a;
+    --bone:#f3efe8;
+    --line:#2e2e2a;
+    --accent:#c9482f;
+    --muted:#8a8578;
+    --ok:#5fa876;
+    --err:#d9583f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:'Archivo', sans-serif; font-size:14px;}
+  h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; margin:0;}
+  a{color:inherit;}
+  input, textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--bone);
+    padding:10px 12px; border-radius:6px; font-family:'Archivo', sans-serif; font-size:13.5px;
+  }
+  input:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  textarea{resize:vertical; min-height:70px;}
+  label.field{display:block; margin-bottom:14px;}
+  label.field span{display:block; font-size:11.5px; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; text-transform:uppercase;}
+  button{
+    font-family:'Archivo', sans-serif; font-size:13px; font-weight:500; cursor:pointer;
+    border-radius:6px; border:1px solid var(--line); background:var(--panel-2); color:var(--bone);
+    padding:9px 16px; transition:background .2s, border-color .2s;
+  }
+  button:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  button.primary:hover{background:#b23e28;}
+  button.ghost{background:transparent;}
+  button.small{padding:6px 10px; font-size:12px;}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+
+  /* --- Login --- */
+  .login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-card{width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:36px;}
+  .login-card h1{font-size:1.5rem; font-style:italic; font-weight:400; margin-bottom:6px;}
+  .login-card p{color:var(--muted); font-size:12.5px; margin-bottom:26px;}
+  .login-card button{width:100%; margin-top:6px;}
+  .login-error{color:var(--err); font-size:12.5px; margin-top:10px; min-height:16px;}
+
+  /* --- Shell --- */
+  .admin-shell{display:none;}
+  .admin-shell.visible{display:block;}
+  .topbar{
+    position:sticky; top:0; z-index:10; background:var(--ink); border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; padding:16px 24px;
+  }
+  .topbar h1{font-size:1.1rem; font-style:italic; font-weight:400;}
+  .topbar .actions{display:flex; gap:10px; align-items:center;}
+  .save-status{font-size:12px; color:var(--muted);}
+  .save-status.ok{color:var(--ok);}
+  .save-status.err{color:var(--err);}
+
+  .layout{max-width:920px; margin:0 auto; padding:32px 24px 100px;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:26px; margin-bottom:22px;}
+  .panel h2{font-size:1.05rem; font-style:italic; font-weight:400; margin-bottom:4px;}
+  .panel .hint{color:var(--muted); font-size:12px; margin-bottom:20px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:640px){.row2{grid-template-columns:1fr;}}
+
+  .list-item{border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:12px; background:var(--panel-2);}
+  .list-item-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .list-item-head span{font-size:11px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase;}
+  .list-item-actions{display:flex; gap:6px;}
+  .photo-preview{width:100%; height:140px; border-radius:6px; object-fit:cover; background:#000; margin-top:10px; display:none;}
+  .photo-preview.visible{display:block;}
+  .add-row{margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <h1>Espace admin</h1>
+    <p>Connecte-toi pour modifier le contenu du portfolio.</p>
+    <label class="field"><span>Email</span><input type="email" id="login-email" autocomplete="username"></label>
+    <label class="field"><span>Mot de passe</span><input type="password" id="login-password" autocomplete="current-password"></label>
+    <button class="primary" id="login-submit">Se connecter</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div class="admin-shell" id="admin-shell">
+  <div class="topbar">
+    <h1>Ulrike Salako — Admin</h1>
+    <div class="actions">
+      <span class="save-status" id="save-status"></span>
+      <a href="/" target="_blank"><button class="ghost small">Voir le site</button></a>
+      <button class="ghost small" id="logout-btn">Déconnexion</button>
+      <button class="primary" id="save-btn">Enregistrer les modifications</button>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <section class="panel">
+      <h2>En-tête (hero)</h2>
+      <p class="hint">Le grand titre affiché en haut de la page.</p>
+      <div class="row2">
+        <label class="field"><span>Mention gauche</span><input id="hero-eyebrowLeft"></label>
+        <label class="field"><span>Mention droite (localisation)</span><input id="hero-eyebrowRight"></label>
+      </div>
+      <div class="row2">
+        <label class="field"><span>Prénom (droit)</span><input id="hero-namePlain"></label>
+        <label class="field"><span>Nom (en italique, accent couleur)</span><input id="hero-nameItalic"></label>
+      </div>
+      <label class="field"><span>Texte de présentation</span><textarea id="hero-subtitle"></textarea></label>
+      <label class="field"><span>Texte "scroll" en bas à droite</span><input id="hero-scrollHint"></label>
+    </section>
+
+    <section class="panel">
+      <h2>Profil</h2>
+      <p class="hint">La citation, le texte de présentation et les badges.</p>
+      <label class="field"><span>Citation (titre en italique)</span><textarea id="about-quote"></textarea></label>
+      <label class="field"><span>Paragraphe de présentation</span><textarea id="about-paragraph" style="min-height:110px;"></textarea></label>
+      <div id="about-badges-list"></div>
+      <button class="small add-row" id="add-badge">+ Ajouter un badge</button>
+    </section>
+
+    <section class="panel">
+      <h2>Données techniques</h2>
+      <p class="hint">Les lignes affichées dans l'encart (taille, poids, etc.).</p>
+      <div id="spec-list"></div>
+      <button class="small add-row" id="add-spec">+ Ajouter une ligne</button>
+    </section>
+
+    <section class="panel">
+      <h2>Galerie</h2>
+      <p class="hint">Héberge chaque photo sur imgbb.com, puis colle ici le lien direct de l'image ("Direct link").</p>
+      <div class="row2">
+        <label class="field"><span>Titre de la section</span><input id="galleryIntro-title"></label>
+        <label class="field"><span>Texte sous le titre</span><input id="galleryIntro-text"></label>
+      </div>
+      <div id="gallery-list"></div>
+      <button class="small add-row" id="add-photo">+ Ajouter une photo</button>
+    </section>
+
+    <section class="panel">
+      <h2>Contact</h2>
+      <label class="field"><span>Titre (deux lignes possibles, séparées par un retour à la ligne)</span><textarea id="contact-heading" style="min-height:60px;"></textarea></label>
+      <div class="row2">
+        <label class="field"><span>Libellé téléphone</span><input id="contact-phoneLabel"></label>
+        <label class="field"><span>Numéro affiché</span><input id="contact-phone" placeholder="+7 996 588 70 82"></label>
+      </div>
+      <div class="row2">
+        <label class="field"><span>Libellé email</span><input id="contact-emailLabel"></label>
+        <label class="field"><span>Adresse email</span><input id="contact-email"></label>
+      </div>
+      <div class="row2">
+        <label class="field"><span>Libellé Instagram</span><input id="contact-instagramLabel"></label>
+        <label class="field"><span>Texte affiché (@pseudo)</span><input id="contact-instagramText"></label>
+      </div>
+      <label class="field"><span>Lien Instagram (URL complète)</span><input id="contact-instagramUrl"></label>
+    </section>
+
+    <section class="panel">
+      <h2>Pied de page</h2>
+      <div class="row2">
+        <label class="field"><span>Texte gauche</span><input id="footer-left"></label>
+        <label class="field"><span>Texte droit</span><input id="footer-right"></label>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script type="module">
+  import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { db, auth, SITE_DOC_PATH } from "./firebase-init.js";
+  import { DEFAULT_CONTENT } from "./default-content.js";
+
+  const loginScreen = document.getElementById("login-screen");
+  const adminShell = document.getElementById("admin-shell");
+  const loginError = document.getElementById("login-error");
+  const saveStatus = document.getElementById("save-status");
+
+  document.getElementById("login-submit").addEventListener("click", async () => {
+    loginError.textContent = "";
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      loginError.textContent = "Connexion impossible — vérifie l'email et le mot de passe.";
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loginScreen.style.display = "none";
+      adminShell.classList.add("visible");
+      loadContent();
+    } else {
+      loginScreen.style.display = "flex";
+      adminShell.classList.remove("visible");
+    }
+  });
+
+  // ---------- Repeatable list helpers (badges / specs / gallery) ----------
+
+  function makeBadgeRow(value = "") {
+    const row = document.createElement("div");
+    row.className = "list-item";
+    row.innerHTML = `
+      <div class="list-item-head">
+        <span>Badge</span>
+        <div class="list-item-actions"><button type="button" class="small ghost remove">Retirer</button></div>
+      </div>
+      <input class="badge-input" value="${escapeAttr(value)}">
+    `;
+    row.querySelector(".remove").addEventListener("click", () => row.remove());
+    return row;
+  }
+
+  function makeSpecRow(label = "", value = "") {
+    const row = document.createElement("div");
+    row.className = "list-item";
+    row.innerHTML = `
+      <div class="list-item-head">
+        <span>Ligne</span>
+        <div class="list-item-actions"><button type="button" class="small ghost remove">Retirer</button></div>
+      </div>
+      <div class="row2">
+        <input class="spec-label" placeholder="Libellé (ex. Рост)" value="${escapeAttr(label)}">
+        <input class="spec-value" placeholder="Valeur (ex. 183 см)" value="${escapeAttr(value)}">
+      </div>
+    `;
+    row.querySelector(".remove").addEventListener("click", () => row.remove());
+    return row;
+  }
+
+  function makePhotoRow(url = "", alt = "") {
+    const row = document.createElement("div");
+    row.className = "list-item";
+    row.innerHTML = `
+      <div class="list-item-head">
+        <span>Photo</span>
+        <div class="list-item-actions">
+          <button type="button" class="small ghost move-up">↑</button>
+          <button type="button" class="small ghost move-down">↓</button>
+          <button type="button" class="small ghost remove">Retirer</button>
+        </div>
+      </div>
+      <label class="field"><span>Lien direct imgbb</span><input class="photo-url" placeholder="https://i.ibb.co/..." value="${escapeAttr(url)}"></label>
+      <label class="field"><span>Texte alternatif (description courte)</span><input class="photo-alt" value="${escapeAttr(alt)}"></label>
+      <img class="photo-preview ${url ? "visible" : ""}" src="${escapeAttr(url)}">
+    `;
+    const urlInput = row.querySelector(".photo-url");
+    const preview = row.querySelector(".photo-preview");
+    urlInput.addEventListener("input", () => {
+      if (urlInput.value) { preview.src = urlInput.value; preview.classList.add("visible"); }
+      else { preview.classList.remove("visible"); }
+    });
+    row.querySelector(".remove").addEventListener("click", () => row.remove());
+    row.querySelector(".move-up").addEventListener("click", () => {
+      const prev = row.previousElementSibling;
+      if (prev) row.parentElement.insertBefore(row, prev);
+    });
+    row.querySelector(".move-down").addEventListener("click", () => {
+      const next = row.nextElementSibling;
+      if (next) row.parentElement.insertBefore(next, row);
+    });
+    return row;
+  }
+
+  document.getElementById("add-badge").addEventListener("click", () => {
+    document.getElementById("about-badges-list").appendChild(makeBadgeRow());
+  });
+  document.getElementById("add-spec").addEventListener("click", () => {
+    document.getElementById("spec-list").appendChild(makeSpecRow());
+  });
+  document.getElementById("add-photo").addEventListener("click", () => {
+    document.getElementById("gallery-list").appendChild(makePhotoRow());
+  });
+
+  function escapeAttr(value) {
+    return String(value ?? "").replace(/"/g, "&quot;");
+  }
+
+  // ---------- Load ----------
+
+  async function loadContent() {
+    let content = DEFAULT_CONTENT;
+    try {
+      const snap = await getDoc(doc(db, ...SITE_DOC_PATH));
+      if (snap.exists()) content = { ...DEFAULT_CONTENT, ...snap.data() };
+    } catch (err) {
+      console.error("Lecture Firestore impossible, formulaire pré-rempli avec le contenu par défaut.", err);
+    }
+    fillForm(content);
+  }
+
+  function fillForm(c) {
+    const hero = { ...DEFAULT_CONTENT.hero, ...(c.hero || {}) };
+    const about = { ...DEFAULT_CONTENT.about, ...(c.about || {}) };
+    const galleryIntro = { ...DEFAULT_CONTENT.galleryIntro, ...(c.galleryIntro || {}) };
+    const contact = { ...DEFAULT_CONTENT.contact, ...(c.contact || {}) };
+    const footer = { ...DEFAULT_CONTENT.footer, ...(c.footer || {}) };
+    const specs = Array.isArray(c.specs) ? c.specs : DEFAULT_CONTENT.specs;
+    const gallery = Array.isArray(c.gallery) ? c.gallery : DEFAULT_CONTENT.gallery;
+
+    document.getElementById("hero-eyebrowLeft").value = hero.eyebrowLeft;
+    document.getElementById("hero-eyebrowRight").value = hero.eyebrowRight;
+    document.getElementById("hero-namePlain").value = hero.namePlain;
+    document.getElementById("hero-nameItalic").value = hero.nameItalic;
+    document.getElementById("hero-subtitle").value = hero.subtitle;
+    document.getElementById("hero-scrollHint").value = hero.scrollHint;
+
+    document.getElementById("about-quote").value = about.quote;
+    document.getElementById("about-paragraph").value = about.paragraph;
+    const badgesList = document.getElementById("about-badges-list");
+    badgesList.innerHTML = "";
+    (about.badges || []).forEach((b) => badgesList.appendChild(makeBadgeRow(b)));
+
+    const specList = document.getElementById("spec-list");
+    specList.innerHTML = "";
+    specs.forEach((row) => specList.appendChild(makeSpecRow(row.label, row.value)));
+
+    document.getElementById("galleryIntro-title").value = galleryIntro.title;
+    document.getElementById("galleryIntro-text").value = galleryIntro.text;
+    const galleryList = document.getElementById("gallery-list");
+    galleryList.innerHTML = "";
+    gallery.forEach((photo) => galleryList.appendChild(makePhotoRow(photo.url, photo.alt)));
+
+    document.getElementById("contact-heading").value = contact.heading.replace(/<br\s*\/?>/gi, "\n");
+    document.getElementById("contact-phoneLabel").value = contact.phoneLabel;
+    document.getElementById("contact-phone").value = contact.phone;
+    document.getElementById("contact-emailLabel").value = contact.emailLabel;
+    document.getElementById("contact-email").value = contact.email;
+    document.getElementById("contact-instagramLabel").value = contact.instagramLabel;
+    document.getElementById("contact-instagramText").value = contact.instagramText;
+    document.getElementById("contact-instagramUrl").value = contact.instagramUrl;
+
+    document.getElementById("footer-left").value = footer.left;
+    document.getElementById("footer-right").value = footer.right;
+  }
+
+  // ---------- Save ----------
+
+  function phoneToHref(phone) {
+    return `tel:${phone.replace(/[^\d+]/g, "")}`;
+  }
+
+  function collectForm() {
+    const badges = Array.from(document.querySelectorAll("#about-badges-list .badge-input"))
+      .map((el) => el.value.trim()).filter(Boolean);
+    const specs = Array.from(document.querySelectorAll("#spec-list .list-item")).map((row) => ({
+      label: row.querySelector(".spec-label").value.trim(),
+      value: row.querySelector(".spec-value").value.trim(),
+    })).filter((row) => row.label || row.value);
+    const gallery = Array.from(document.querySelectorAll("#gallery-list .list-item")).map((row) => ({
+      url: row.querySelector(".photo-url").value.trim(),
+      alt: row.querySelector(".photo-alt").value.trim(),
+    })).filter((photo) => photo.url);
+    const phone = document.getElementById("contact-phone").value.trim();
+
+    return {
+      hero: {
+        eyebrowLeft: document.getElementById("hero-eyebrowLeft").value.trim(),
+        eyebrowRight: document.getElementById("hero-eyebrowRight").value.trim(),
+        namePlain: document.getElementById("hero-namePlain").value.trim(),
+        nameItalic: document.getElementById("hero-nameItalic").value.trim(),
+        subtitle: document.getElementById("hero-subtitle").value.trim(),
+        scrollHint: document.getElementById("hero-scrollHint").value.trim(),
+      },
+      about: {
+        quote: document.getElementById("about-quote").value.trim(),
+        paragraph: document.getElementById("about-paragraph").value.trim(),
+        badges,
+      },
+      specs,
+      galleryIntro: {
+        title: document.getElementById("galleryIntro-title").value.trim(),
+        text: document.getElementById("galleryIntro-text").value.trim(),
+      },
+      gallery,
+      contact: {
+        heading: document.getElementById("contact-heading").value.trim().replace(/\n/g, "<br>"),
+        phoneLabel: document.getElementById("contact-phoneLabel").value.trim(),
+        phone,
+        phoneHref: phoneToHref(phone),
+        emailLabel: document.getElementById("contact-emailLabel").value.trim(),
+        email: document.getElementById("contact-email").value.trim(),
+        instagramLabel: document.getElementById("contact-instagramLabel").value.trim(),
+        instagramText: document.getElementById("contact-instagramText").value.trim(),
+        instagramUrl: document.getElementById("contact-instagramUrl").value.trim(),
+      },
+      footer: {
+        left: document.getElementById("footer-left").value.trim(),
+        right: document.getElementById("footer-right").value.trim(),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  document.getElementById("save-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("save-btn");
+    btn.disabled = true;
+    saveStatus.textContent = "Enregistrement…";
+    saveStatus.className = "save-status";
+    try {
+      await setDoc(doc(db, ...SITE_DOC_PATH), collectForm());
+      saveStatus.textContent = "Modifications enregistrées ✓";
+      saveStatus.className = "save-status ok";
+    } catch (err) {
+      console.error(err);
+      saveStatus.textContent = "Échec de l'enregistrement — réessaie.";
+      saveStatus.className = "save-status err";
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { saveStatus.textContent = ""; saveStatus.className = "save-status"; }, 4000);
+    }
+  });
+</script>
+
+</body>
+</html>
